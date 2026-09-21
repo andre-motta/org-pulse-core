@@ -82,8 +82,10 @@
               <input
                 v-model="editValues[secret.key]"
                 :type="showValues[secret.key] ? 'text' : 'password'"
-                :placeholder="secret.configured ? '••••••••' : 'Enter value'"
+                :placeholder="secret.configured ? 'Leave blank to keep existing value' : 'Enter value'"
+                :aria-label="secret.key"
                 class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                @focus="selectMaskOnFocus($event, secret.key)"
               />
               <button
                 @click="showValues[secret.key] = !showValues[secret.key]"
@@ -99,8 +101,14 @@
                 </svg>
               </button>
             </div>
-            <p v-if="secret.configured && !editValues[secret.key]" class="text-xs text-gray-500 dark:text-gray-400">
-              Currently configured. Leave blank to keep existing value.
+            <p v-if="secret.configured && isMasked(secret.key)" class="text-xs text-gray-500 dark:text-gray-400">
+              Currently configured. Delete the masked value to enter a new one.
+            </p>
+            <p v-else-if="secret.configured && !editValues[secret.key]" class="text-xs text-gray-500 dark:text-gray-400">
+              Existing value will be kept.
+            </p>
+            <p v-else-if="secret.configured" class="text-xs text-amber-600 dark:text-amber-400">
+              Existing value will be replaced on save.
             </p>
           </div>
         </div>
@@ -143,6 +151,11 @@ const props = defineProps({
 
 const emit = defineEmits(['test', 'saved'])
 
+// Configured secrets are pre-filled with this mask so the field visibly
+// reads as "set" without exposing the value. A field left as the mask, or
+// cleared to blank, is not sent and the stored value is kept.
+const MASK = '••••••••'
+
 const showEditModal = ref(false)
 const editValues = ref({})
 const showValues = ref({})
@@ -155,25 +168,42 @@ watch(showEditModal, (isOpen) => {
     editValues.value = {}
     showValues.value = {}
     saveError.value = null
-    // Initialize empty values for all secrets
+    // Configured secrets show the mask; unset secrets start empty.
     props.secrets.forEach(secret => {
-      editValues.value[secret.key] = ''
+      editValues.value[secret.key] = secret.configured ? MASK : ''
       showValues.value[secret.key] = false
     })
   }
 })
+
+function isMasked(key) {
+  return editValues.value[key] === MASK
+}
+
+// Select the mask on focus so typing replaces it in one step.
+function selectMaskOnFocus(event, key) {
+  if (isMasked(key) && event && event.target && typeof event.target.select === 'function') {
+    event.target.select()
+  }
+}
 
 async function saveSecrets() {
   saving.value = true
   saveError.value = null
 
   try {
-    // Only send non-empty values
+    // Only send fields the user actually changed. The untouched mask and
+    // blank fields both mean "keep the existing value".
     const updates = {}
     for (const [key, value] of Object.entries(editValues.value)) {
-      if (value && value.trim()) {
-        updates[key] = value.trim()
+      const trimmed = typeof value === 'string' ? value.trim() : ''
+      if (!trimmed || trimmed === MASK) continue
+      if (trimmed.includes('•')) {
+        saveError.value = `Delete the masked value for ${key} before entering a new one`
+        saving.value = false
+        return
       }
+      updates[key] = trimmed
     }
 
     if (Object.keys(updates).length === 0) {
