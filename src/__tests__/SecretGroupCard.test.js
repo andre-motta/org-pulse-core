@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SecretGroupCard from '../components/settings/SecretGroupCard.vue'
 
@@ -53,6 +53,10 @@ describe('SecretGroupCard edit modal', () => {
     })
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('pre-fills configured secrets with a mask and leaves unset secrets empty', async () => {
     const wrapper = await openModal()
     expect(input(wrapper, 'JIRA_EMAIL').element.value).toBe(MASK)
@@ -90,6 +94,7 @@ describe('SecretGroupCard edit modal', () => {
     await save(wrapper)
     expect(mockApiRequest).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('No changes to save')
+    expect(wrapper.find('.text-red-600').exists()).toBe(false)
   })
 
   it('rejects a value typed around the mask instead of sending mask characters', async () => {
@@ -97,7 +102,7 @@ describe('SecretGroupCard edit modal', () => {
     await input(wrapper, 'JIRA_EMAIL').setValue(MASK + 'x')
     await save(wrapper)
     expect(mockApiRequest).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Delete the masked value for JIRA_EMAIL')
+    expect(wrapper.text()).toContain('JIRA_EMAIL still contains the mask placeholder')
   })
 
   it('selects the mask on focus so typing replaces it', async () => {

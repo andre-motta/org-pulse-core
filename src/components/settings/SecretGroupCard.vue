@@ -116,10 +116,13 @@
         <div v-if="saveError" class="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
           {{ saveError }}
         </div>
+        <div v-else-if="saveInfo" class="text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg">
+          {{ saveInfo }}
+        </div>
 
         <div class="flex justify-end gap-3 pt-2">
           <button
-            @click="showEditModal = false; saveError = null"
+            @click="showEditModal = false; saveError = null; saveInfo = null"
             class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >Cancel</button>
           <button
@@ -161,6 +164,7 @@ const editValues = ref({})
 const showValues = ref({})
 const saving = ref(false)
 const saveError = ref(null)
+const saveInfo = ref(null)
 
 // Initialize editValues when modal opens
 watch(showEditModal, (isOpen) => {
@@ -168,6 +172,7 @@ watch(showEditModal, (isOpen) => {
     editValues.value = {}
     showValues.value = {}
     saveError.value = null
+    saveInfo.value = null
     // Configured secrets show the mask; unset secrets start empty.
     props.secrets.forEach(secret => {
       editValues.value[secret.key] = secret.configured ? MASK : ''
@@ -190,6 +195,7 @@ function selectMaskOnFocus(event, key) {
 async function saveSecrets() {
   saving.value = true
   saveError.value = null
+  saveInfo.value = null
 
   try {
     // Only send fields the user actually changed. The untouched mask and
@@ -198,8 +204,8 @@ async function saveSecrets() {
     for (const [key, value] of Object.entries(editValues.value)) {
       const trimmed = typeof value === 'string' ? value.trim() : ''
       if (!trimmed || trimmed === MASK) continue
-      if (trimmed.includes('•')) {
-        saveError.value = `Delete the masked value for ${key} before entering a new one`
+      if (trimmed.includes(MASK[0])) {
+        saveError.value = `${key} still contains the mask placeholder (${MASK[0]}). Delete the masked value, then enter the new one.`
         saving.value = false
         return
       }
@@ -207,7 +213,7 @@ async function saveSecrets() {
     }
 
     if (Object.keys(updates).length === 0) {
-      saveError.value = 'No changes to save'
+      saveInfo.value = 'No changes to save. Masked and blank fields keep their existing values.'
       saving.value = false
       return
     }
