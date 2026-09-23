@@ -221,6 +221,7 @@ async function saveSecrets() {
     // Send to backend
     await apiRequest('/admin/secrets/update', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secrets: updates })
     })
 

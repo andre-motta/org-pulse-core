@@ -38,6 +38,7 @@ function sentSecrets() {
   const [path, opts] = mockApiRequest.mock.calls[0]
   expect(path).toBe('/admin/secrets/update')
   expect(opts.method).toBe('POST')
+  expect(opts.headers).toEqual({ 'Content-Type': 'application/json' })
   return JSON.parse(opts.body).secrets
 }
 
